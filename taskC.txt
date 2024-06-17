@@ -1,0 +1,40 @@
+with 
+company as (
+select name from users
+where owner_id is null or owner_id not in (select id from users
+where owner_id is null)),
+budget as (
+select w.rk_id, w.sum, u1.name from(
+select pd.id, pd.date, pd.user_id, pd.rk_id, pd.sum, u.owner_id from payment_date pd
+join users u on u.id = pd.user_id) w, users u1
+where (u1.id=w.owner_id or (w.owner_id is null and u1.id = w.user_id) or (w.owner_id not in (select id from users where owner_id is null) and u1.id = w.user_id)) and w.sum >= 0
+),
+main as (
+select ad.id, sum, name, create_date, is_main from budget b
+join advertising_companies ad on ad.id = b.rk_id),
+mx_id as (
+select max(id) as id, name, create_date from main 
+where is_main = 0
+group by create_date, name),
+mn_d as (
+select min(create_date) as date, name from mx_id
+group by name),
+ind_0 as (
+select id, mi.name
+from mx_id mi, mn_d md
+where mi.name = md.name and mi.create_date = md.date),
+ad_0 as (
+select m.id, m.name, sum from main m, ind_0 i
+where (m.id = i.id and is_main = 0 and m.name = i.name)),
+ad_1 as (select m.id, m.name, sum from main m where is_main = 1),
+endi as (
+select sum, name from ad_0
+union all
+select sum, name from ad_1),
+profit as (
+select sum(sum), name from endi
+group by name)
+select c.name, sum(sum) from company c
+left join endi on endi.name = c.name
+group by c.name
+order by name
